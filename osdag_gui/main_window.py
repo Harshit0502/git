@@ -22,6 +22,8 @@ from osdag_gui.ui.components.custom_buttons import MenuButton
 from osdag_gui.ui.components.top_right_button_bar import TopButton, DropDownButton
 from osdag_gui.ui.components.home_widget import HomeWidget
 from PySide6.QtWidgets import QSplitter
+from osdag_gui.ui.windows.template_page import TemplatePage
+from osdag_core.design_type.connection import CONNECTION_REGISTRY
 
 class BackgroundSvgWidget(QWidget):
     def __init__(self, svg_path, parent=None):
@@ -405,6 +407,20 @@ class HomeWindow(QWidget):
         svg_card_widget = SvgCardContainer(data)
         self.svg_card_layout.addWidget(svg_card_widget)
 
+
+class MainWindow(QMainWindow):
+    """Wrapper around :class:`TemplatePage` with connection registry."""
+
+    def __init__(self):
+        super().__init__()
+        self.registry = CONNECTION_REGISTRY
+        self.current_connection = None
+        self.template = TemplatePage(parent=self)
+        self.setCentralWidget(self.template)
+
+    def show_input_dock(self):
+        self.template.show_input_dock()
+
     def submenu_trigger(self, data, clicked_button=None):
         """
         Triggered when a primary menu button (that leads to a submenu) is clicked.
@@ -462,7 +478,7 @@ if __name__ == "__main__":
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
     from PySide6.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    main_window = HomeWindow()
+    main_window = MainWindow()
     main_window.show()
     sys.exit(app.exec())
 

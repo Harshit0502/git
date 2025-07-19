@@ -91,6 +91,11 @@ class LogDock(QWidget):
         self.log_display.append(formatted_message)
         self.log_display.ensureCursorVisible()
 
+    def log_messages(self, messages):
+        """Append multiple log messages."""
+        for msg in messages:
+            self.append_log(msg)
+
     def toggle_log_dock(self):
         """Toggle the visibility of the log dock."""
         self.is_visible = not self.is_visible

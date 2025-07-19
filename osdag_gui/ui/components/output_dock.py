@@ -2,7 +2,7 @@ import sys
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QPushButton, QLabel, QSizePolicy, QGroupBox,
-    QFormLayout, QLineEdit, QScrollArea
+    QFormLayout, QLineEdit, QScrollArea, QMessageBox
 )
 from PySide6.QtGui import QPalette, QColor, QPixmap, QIcon, QPainter
 from PySide6.QtCore import Qt, QPropertyAnimation, QSize, QPoint, QEasingCurve
@@ -148,19 +148,22 @@ def create_group_box(title, fields):
     # Pad labels for this group
     fields = pad_labels(fields)
 
+    widgets = {}
     for field in fields:
         if field["type"] == "lineedit":
             line = QLineEdit()
             line.setStyleSheet(style_line_edit())
             form.addRow(create_row(field["label_padded"], line, spacing=4))
+            widgets[field["label"]] = line
         elif field["type"] == "button":
             btn = QPushButton(field["label"])
             btn.setStyleSheet(style_small_button())
             btn.setEnabled(not field.get("disabled", False))
             form.addRow(create_row(field["label_padded"], btn, spacing=4))
+            widgets[field["label"]] = btn
 
     layout.addLayout(form)
-    return group_box
+    return group_box, widgets
 
 class OutputDock(QWidget):
     def __init__(self, parent):
@@ -272,8 +275,10 @@ class OutputDock(QWidget):
         group_container = QWidget()
         group_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         group_layout = QVBoxLayout(group_container)
+        self.field_map = {}
         for title, fields in GROUPS_DATA.items():
-            group_box = create_group_box(title, fields)
+            group_box, widgets = create_group_box(title, fields)
+            self.field_map[title] = widgets
             group_box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             group_layout.addWidget(group_box)
         group_layout.addStretch()
@@ -285,10 +290,13 @@ class OutputDock(QWidget):
         btn_button_layout.setContentsMargins(0, 20, 0, 0)
         btn_button_layout.addStretch(1)
 
-        clickable_btn = CustomButton("Generate Report")
-        clickable_btn.clicked.connect(lambda: print("Report Generate clicked"))
+        self.report_btn = CustomButton("Generate Report")
+        self.report_btn.clicked.connect(self.export_report)
+        self.model_btn = CustomButton("3D Model")
+        self.model_btn.clicked.connect(self.show_3d_model)
 
-        btn_button_layout.addWidget(clickable_btn, 2)
+        btn_button_layout.addWidget(self.report_btn, 2)
+        btn_button_layout.addWidget(self.model_btn, 2)
         btn_button_layout.addStretch(1)
         right_layout.addLayout(btn_button_layout)
 
@@ -362,5 +370,57 @@ class OutputDock(QWidget):
             label = QLabel(f"{key}: {value}")
             layout.addWidget(label)
         self.current_result = result_dict
+
+    def display_results(self, conn_obj):
+        """Populate result fields from the connection object."""
+        self.conn_obj = conn_obj
+        bolt = getattr(conn_obj, 'bolt', None)
+        plate = getattr(conn_obj, 'plate', None)
+        weld = getattr(conn_obj, 'weld', None)
+
+        if bolt:
+            widgets = self.field_map.get('Bolt', {})
+            widgets.get('Diameter (mm)', QLabel()).setText(str(getattr(bolt, 'bolt_diameter_provided', '')))
+            widgets.get('Property Class', QLabel()).setText(str(getattr(bolt, 'bolt_grade_provided', '')))
+            widgets.get('Shear Capacity (kN)', QLabel()).setText(str(getattr(bolt, 'bolt_shear_capacity', '')))
+            widgets.get('Bearing Capacity (kN)', QLabel()).setText(str(getattr(bolt, 'bolt_bearing_capacity', '')))
+            widgets.get('Capacity (kN)', QLabel()).setText(str(getattr(bolt, 'bolt_capacity', '')))
+            widgets.get('Bolt Force (kN)', QLabel()).setText(str(getattr(plate, 'bolt_force', '')))
+            widgets.get('Bolt Columns', QLabel()).setText(str(getattr(plate, 'bolt_line', '')))
+            widgets.get('Bolt Rows', QLabel()).setText(str(getattr(plate, 'bolts_one_line', '')))
+        if plate:
+            widgets = self.field_map.get('Plate', {})
+            widgets.get('Thickness (mm)', QLabel()).setText(str(getattr(plate, 'thickness_provided', '')))
+            widgets.get('Height (mm)', QLabel()).setText(str(getattr(plate, 'height', '')))
+            widgets.get('Length (mm)', QLabel()).setText(str(getattr(plate, 'length', '')))
+            cap_btn = widgets.get('Capacity Details')
+            if cap_btn:
+                cap_btn.setEnabled(True)
+                cap_btn.clicked.connect(self.show_capacity_details)
+        if weld:
+            widgets = self.field_map.get('Weld', {})
+            widgets.get('Size (mm)', QLabel()).setText(str(getattr(weld, 'size', '')))
+            widgets.get('Strength (N/mm2)', QLabel()).setText(str(getattr(weld, 'strength', '')))
+            widgets.get('Stress (N/mm)', QLabel()).setText(str(getattr(weld, 'stress', '')))
+
+    def show_capacity_details(self):
+        if not hasattr(self, 'conn_obj'):
+            return
+        details = str(self.conn_obj.capacities())
+        msg = QMessageBox(self)
+        msg.setWindowTitle('Capacity Details')
+        msg.setText(details)
+        msg.exec()
+
+    def export_report(self):
+        if hasattr(self, 'conn_obj'):
+            self.conn_obj.save_design()
+            QMessageBox.information(self, 'Report', 'Report exported successfully')
+
+    def show_3d_model(self):
+        main_window = self.parent.parent()
+        conn = getattr(main_window, 'current_connection', None)
+        if conn:
+            conn.call_3DPlate(main_window, QColor('white'))
 
 

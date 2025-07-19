@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QComboBox, QScrollArea, QLabel, QFormLayout, QLineEdit, QGroupBox, QSizePolicy
 )
 from PySide6.QtSvgWidgets import QSvgWidget
-from PySide6.QtCore import Qt, QPropertyAnimation, QSize, QTimer
+from PySide6.QtCore import Qt, QPropertyAnimation, QSize, QTimer, Slot
 from PySide6.QtGui import QPixmap, QIcon, QPainter, QColor
 
 from osdag_gui.ui.components.additional_inputs_button import AdditionalInputsButton
@@ -495,7 +495,7 @@ class InputDock(QWidget):
         btn_button_layout.addStretch(1)
 
         svg_clickable_btn = CustomButton("Design")
-        svg_clickable_btn.clicked.connect(lambda: print("design clicked"))
+        svg_clickable_btn.clicked.connect(self.run_design)
         # svg_clickable_btn.clicked.connect(lambda: print("design clicked"))
 
 
@@ -554,6 +554,34 @@ class InputDock(QWidget):
             self.parent.update_docking_icons(False, self.parent.log_dock_active, self.parent.output_dock_active)
         elif self.width() > 0 and hasattr(self.parent, 'update_docking_icons'):
             self.parent.update_docking_icons(True, self.parent.log_dock_active, self.parent.output_dock_active)
+
+    @Slot()
+    def run_design(self):
+        """Collect input values from widgets and run the design."""
+        values = {}
+        for idx, cb in enumerate(self.findChildren(QComboBox)):
+            values[f"combo_{idx}"] = cb.currentText()
+        for idx, le in enumerate(self.findChildren(QLineEdit)):
+            values[f"line_{idx}"] = le.text()
+
+        conn_name = values.get("combo_0", "Fin-Plate")
+        main_window = self.parent.parent()
+        conn_class = main_window.registry.get(conn_name)
+        if not conn_class:
+            return
+
+        conn_obj = conn_class()
+        conn_obj.set_input_values(values)
+        conn_obj.member_capacity()
+        conn_obj.select_bolt_dia()
+        conn_obj.get_fin_plate_details()
+        conn_obj.section_shear_checks()
+        conn_obj.plate_shear_checks()
+
+        main_window.current_connection = conn_obj
+        main_window.template.output_dock.display_results(conn_obj)
+        main_window.template.log_dock.log_messages(["Design complete"])
+        main_window.template.toggle_animate(True, 'output')
 
 #----------------Standalone-Test-Code--------------------------------
 

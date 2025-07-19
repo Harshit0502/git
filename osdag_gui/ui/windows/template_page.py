@@ -17,6 +17,36 @@ from osdag_gui.ui.components.output_dock import OutputDock
 from osdag_gui.ui.components.log_dock import LogDock
 from osdag_gui.db_manager import DatabaseManager
 
+
+class TemplatePage(QWidget):
+    """Minimal page containing input, output and log docks."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.input_dock = InputDock(parent=self)
+        self.output_dock = OutputDock(parent=self)
+        self.log_dock = LogDock(self)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.input_dock)
+        layout.addWidget(self.output_dock)
+        layout.addWidget(self.log_dock)
+
+        self.output_dock.hide()
+        self.log_dock.hide()
+
+    def toggle_animate(self, show: bool, dock: str = 'output'):
+        if dock == 'input':
+            self.input_dock.setVisible(show)
+        elif dock == 'output':
+            self.output_dock.setVisible(show)
+        elif dock == 'log':
+            self.log_dock.setVisible(show)
+
+    def show_input_dock(self):
+        self.toggle_animate(True, 'input')
+
 class CustomWindow(QWidget):
     def __init__(self, title: str):
         super().__init__()
