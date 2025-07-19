@@ -114,6 +114,10 @@ class OsdagLaunchScreen(object):
         # Blinking Time
         self.timer.start(1000)
 
+    def connect_new_design(self, main_window, button):
+        """Connect a button to show the input dock of the main window."""
+        button.clicked.connect(lambda: main_window.template.show_input_dock())
+
     def simulateLoading(self):
         if self.show_dot == 0:
             self.LoadingLabel.setText(f"Loading Application .  ")
